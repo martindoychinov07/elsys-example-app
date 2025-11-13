@@ -6,12 +6,15 @@ from main import app, STORAGE_DIR
 
 client = TestClient(app)
 
-# --- Фикстури за почистване на storage след тест ---
+from fastapi.testclient import TestClient
+from main import app, STORAGE_DIR
+import pytest
+
+client = TestClient(app)
+
 @pytest.fixture(autouse=True)
 def clear_storage():
-    # преди теста: нищо не правим
     yield
-    # след теста: изтриваме всички файлове
     for f in STORAGE_DIR.iterdir():
         if f.is_file():
             f.unlink()
