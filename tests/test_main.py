@@ -6,9 +6,9 @@ from main import app, STORAGE_DIR
 
 client = TestClient(app)
 
+import pytest
 from fastapi.testclient import TestClient
 from main import app, STORAGE_DIR
-import pytest
 
 client = TestClient(app)
 
