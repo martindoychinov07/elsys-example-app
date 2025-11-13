@@ -9,9 +9,23 @@ on:
       - main
 
 jobs:
+  # ------------------- Pull Request (CI) -------------------
   ci:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    services:
+      fastapi:
+        image: python:3.13
+        ports:
+          - 8000:8000
+        options: >-
+          --health-cmd "curl -f http://localhost:8000/health || exit 1"
+          --health-interval 5s
+          --health-timeout 2s
+          --health-retries 5
+        volumes:
+          - ./:/app
+        command: bash -c "pip install -r /app/requirements.txt && uvicorn main:app --host 0.0.0.0"
 
     steps:
       - name: Checkout code
@@ -20,7 +34,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.12
+          python-version: 3.13
 
       - name: Install dependencies
         run: |
@@ -29,12 +43,13 @@ jobs:
           pip install locust
 
       - name: Run unit tests
-        run: |
-          PYTHONPATH=. pytest -v
+        run: pytest -v
 
       - name: Run short load test with Locust
-        run: locust -f locustfile.py --headless -u 10 -r 5 -t 30s --host=http://127.0.0.1:8000
+        run: |
+          locust -f locustfile.py --headless -u 10 -r 5 -t 30s --host=http://127.0.0.1:8000
 
+  # ------------------- Main Branch (CD) -------------------
   cd:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -46,10 +61,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Build Docker image locally
+      - name: Log in to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Docker image
         run: |
           SHA=$(git rev-parse --short HEAD)
-          docker build -t elsys-example-app:latest -t elsys-example-app:$SHA .
+          docker build -t martindoychinov07/elsys-example-app:latest -t martindoychinov07/elsys-example-app:$SHA .
 
-      - name: List local Docker images
-        run: docker images elsys-example-app
+      - name: Push Docker image
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          docker push martindoychinov07/elsys-example-app:latest
+          docker push martindoychinov07/elsys-example-app:$SHA
