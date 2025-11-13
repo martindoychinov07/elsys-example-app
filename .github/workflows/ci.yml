@@ -1,15 +1,12 @@
-name: CI/CD Pipeline Local
+name: CI/CD Pipeline
 
 on:
   pull_request:
-    branches:
-      - "**"
+    branches: ["**"]
   push:
-    branches:
-      - main
+    branches: ["main"]
 
 jobs:
-  # ------------------- Pull Request (CI) -------------------
   ci:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -21,7 +18,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.13
+          python-version: 3.12
 
       - name: Install dependencies
         run: |
@@ -30,12 +27,19 @@ jobs:
           pip install locust
 
       - name: Run unit tests
-        run: pytest -v
+        run: |
+          export PYTHONPATH=.
+          pytest -v
+
+      - name: Start FastAPI app
+        run: |
+          uvicorn main:app --host 0.0.0.0 --port 8000 &
+          sleep 5  # wait for the server to start
 
       - name: Run short load test with Locust
-        run: locust -f locustfile.py --headless -u 10 -r 5 -t 30s --host=http://127.0.0.1:8000
+        run: |
+          locust -f locustfile.py --headless -u 10 -r 5 -t 30s --host=http://127.0.0.1:8000
 
-  # ------------------- Main Branch (CD) -------------------
   cd:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -47,10 +51,10 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Build Docker image locally
+      - name: Build Docker image
         run: |
           SHA=$(git rev-parse --short HEAD)
           docker build -t elsys-example-app:latest -t elsys-example-app:$SHA .
 
-      - name: List local Docker images
+      - name: List Docker images
         run: docker images elsys-example-app
