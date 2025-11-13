@@ -9,7 +9,6 @@ on:
       - main
 
 jobs:
-  # ------------------- Pull Request (CI) -------------------
   ci:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -35,7 +34,6 @@ jobs:
       - name: Run short load test with Locust
         run: locust -f locustfile.py --headless -u 10 -r 5 -t 30s --host=http://127.0.0.1:8000
 
-  # ------------------- Main Branch (CD) -------------------
   cd:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
