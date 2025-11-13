@@ -1,0 +1,56 @@
+name: CI/CD Pipeline Local
+
+on:
+  pull_request:
+    branches:
+      - "**"
+  push:
+    branches:
+      - main
+
+jobs:
+  # ------------------- Pull Request (CI) -------------------
+  ci:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.13
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install locust
+
+      - name: Run unit tests
+        run: pytest -v
+
+      - name: Run short load test with Locust
+        run: locust -f locustfile.py --headless -u 10 -r 5 -t 30s --host=http://127.0.0.1:8000
+
+  # ------------------- Main Branch (CD) -------------------
+  cd:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build Docker image locally
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          docker build -t elsys-example-app:latest -t elsys-example-app:$SHA .
+
+      - name: List local Docker images
+        run: docker images elsys-example-app
